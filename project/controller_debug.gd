@@ -9,15 +9,15 @@ func _process(_delta: float) -> void:
 		return
 
 	var trigger_val := get_trigger()
-	var pad := get_axis(0)
+	var stick := get_axis(0)
 	var grip := is_button_pressed("grip")
-	var menu := is_button_pressed("menu")
 	var a_btn := is_button_pressed("a")
+	var b_btn := is_button_pressed("b")
 
 	label.text = (
 		"trigger: %.2f\n" % trigger_val +
-		"pad: (%.2f, %.2f)\n" % [pad.x, pad.y] +
-		"grip: %s  menu: %s  a: %s" % [grip, menu, a_btn]
+		"stick: (%.2f, %.2f)\n" % [stick.x, stick.y] +
+		"grip: %s  a: %s  b: %s" % [grip, a_btn, b_btn]
 	)
 
 func _on_button_pressed(button_name: String) -> void:

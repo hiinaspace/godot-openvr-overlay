@@ -4,6 +4,7 @@
 
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -225,6 +226,15 @@ void OpenVROverlay::_init_openvr() {
         vr::VROverlay()->SetOverlayFlag(handle, vr::VROverlayFlags_SortWithNonSceneOverlays, true);
         vr::VROverlay()->ShowOverlay(handle);
     }
+
+    // Register action manifest for IVRInput (controllers use this for button/axis data)
+    String actions_path = ProjectSettings::get_singleton()->globalize_path("res://actions.json");
+    std::string actions_path_utf8 = actions_path.utf8().get_data();
+    vr::EVRInputError ie = vr::VRInput()->SetActionManifestPath(actions_path_utf8.c_str());
+    if (ie != vr::VRInputError_None)
+        UtilityFunctions::push_warning(String("OpenVROverlay: SetActionManifestPath failed (") + (int64_t)ie + ") — controller input may not work");
+    else
+        UtilityFunctions::print("OpenVROverlay: action manifest loaded (", actions_path, ")");
 
     UtilityFunctions::print("OpenVROverlay: initialized (key=", key, ")");
     m_initialized = true;

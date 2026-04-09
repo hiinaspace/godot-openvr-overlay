@@ -3,25 +3,10 @@
 #include "openvr_math.h"
 
 #include <godot_cpp/core/class_db.hpp>
-#include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/object.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
 
 using namespace godot;
-
-void OpenVROverlayController3D::_ready() {
-    set_process(true);
-}
-
-// Map button name string → EVRButtonId bitmask
-uint64_t OpenVROverlayController3D::_button_mask(const String &p_button) {
-    if (p_button == "trigger")  return vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Trigger);
-    if (p_button == "grip")     return vr::ButtonMaskFromId(vr::k_EButton_Grip);
-    if (p_button == "menu")     return vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu);
-    if (p_button == "touchpad") return vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Touchpad);
-    if (p_button == "a")        return vr::ButtonMaskFromId(vr::k_EButton_A);
-    if (p_button == "system")   return vr::ButtonMaskFromId(vr::k_EButton_System);
-    return 0;
-}
 
 void OpenVROverlayController3D::_bind_methods() {
     BIND_ENUM_CONSTANT(HAND_LEFT);
@@ -44,13 +29,45 @@ void OpenVROverlayController3D::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_trigger"), &OpenVROverlayController3D::get_trigger);
     ClassDB::bind_method(D_METHOD("get_axis", "index"), &OpenVROverlayController3D::get_axis);
 
-    ADD_SIGNAL(MethodInfo("button_pressed", PropertyInfo(Variant::STRING, "button_name")));
+    ADD_SIGNAL(MethodInfo("button_pressed",  PropertyInfo(Variant::STRING, "button_name")));
     ADD_SIGNAL(MethodInfo("button_released", PropertyInfo(Variant::STRING, "button_name")));
+}
+
+void OpenVROverlayController3D::_ready() {
+    set_process(true);
 }
 
 void OpenVROverlayController3D::_notification(int p_what) {
     if (p_what != NOTIFICATION_PROCESS) return;
     _do_process();
+}
+
+// Build the action path prefix for this hand: e.g. "/actions/main/in/left_"
+static std::string hand_prefix(OpenVROverlayController3D::Hand hand) {
+    return std::string("/actions/main/in/") + (hand == OpenVROverlayController3D::HAND_LEFT ? "left_" : "right_");
+}
+
+void OpenVROverlayController3D::_ensure_handles() {
+    if (m_handles_ready) return;
+    if (!vr::VRInput()) return;
+
+    std::string pfx = hand_prefix(m_hand);
+
+    vr::VRInput()->GetActionSetHandle("/actions/main", &m_action_set);
+
+    vr::VRInput()->GetActionHandle((pfx + "trigger").c_str(),          &m_h_trigger);
+    vr::VRInput()->GetActionHandle((pfx + "grip").c_str(),             &m_h_grip);
+    vr::VRInput()->GetActionHandle((pfx + "thumbstick").c_str(),       &m_h_thumbstick);
+    vr::VRInput()->GetActionHandle((pfx + "trackpad").c_str(),         &m_h_trackpad);
+    vr::VRInput()->GetActionHandle((pfx + "trigger_click").c_str(),    &m_h_trigger_click);
+    vr::VRInput()->GetActionHandle((pfx + "grip_click").c_str(),       &m_h_grip_click);
+    vr::VRInput()->GetActionHandle((pfx + "a").c_str(),                &m_h_a);
+    vr::VRInput()->GetActionHandle((pfx + "b").c_str(),                &m_h_b);
+    vr::VRInput()->GetActionHandle((pfx + "thumbstick_click").c_str(), &m_h_thumbstick_click);
+    vr::VRInput()->GetActionHandle((pfx + "trackpad_click").c_str(),   &m_h_trackpad_click);
+    vr::VRInput()->GetActionHandle((pfx + "system").c_str(),           &m_h_system);
+
+    m_handles_ready = (m_action_set != vr::k_ulInvalidActionSetHandle);
 }
 
 void OpenVROverlayController3D::_do_process() {
@@ -60,11 +77,13 @@ void OpenVROverlayController3D::_do_process() {
         return;
     }
 
+    _ensure_handles();
+
+    // --- Pose tracking (legacy GetDeviceToAbsoluteTrackingPose, unchanged) ---
     vr::ETrackedControllerRole role = (m_hand == HAND_LEFT)
         ? vr::TrackedControllerRole_LeftHand
         : vr::TrackedControllerRole_RightHand;
 
-    // Try direct role lookup first; fall back to enumeration (needed in overlay mode)
     vr::TrackedDeviceIndex_t device_idx =
         vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(role);
 
@@ -79,21 +98,12 @@ void OpenVROverlayController3D::_do_process() {
         }
     }
 
-    // Debug: print whenever device_idx changes (includes going to/from invalid)
     if (device_idx != m_debug_last_device_idx) {
         const char *hand_str = (m_hand == HAND_LEFT) ? "left" : "right";
-        if (device_idx == vr::k_unTrackedDeviceIndexInvalid) {
+        if (device_idx == vr::k_unTrackedDeviceIndexInvalid)
             UtilityFunctions::print("OpenVROverlayController3D [", hand_str, "]: no device found");
-            // Dump all connected controllers for diagnosis
-            for (uint32_t i = 1; i < vr::k_unMaxTrackedDeviceCount; ++i) {
-                auto cls = vr::VRSystem()->GetTrackedDeviceClass(i);
-                if (cls == vr::TrackedDeviceClass_Invalid) continue;
-                auto r = vr::VRSystem()->GetControllerRoleForTrackedDeviceIndex(i);
-                UtilityFunctions::print("  device ", (int64_t)i, " class=", (int64_t)cls, " role=", (int64_t)r);
-            }
-        } else {
+        else
             UtilityFunctions::print("OpenVROverlayController3D [", hand_str, "]: found device_idx=", (int64_t)device_idx);
-        }
         m_debug_last_device_idx = device_idx;
     }
 
@@ -104,7 +114,6 @@ void OpenVROverlayController3D::_do_process() {
     }
     m_is_active = true;
 
-    // Get pose
     vr::TrackedDevicePose_t poses[vr::k_unMaxTrackedDeviceCount];
     vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(
         vr::TrackingUniverseStanding, 0.0f,
@@ -123,47 +132,89 @@ void OpenVROverlayController3D::_do_process() {
         set_transform(t);
     }
 
-    // Controller state + button signals
-    vr::VRControllerState_t new_state{};
-    vr::VRSystem()->GetControllerState(device_idx, &new_state, sizeof(new_state));
+    // --- IVRInput: update action state + read values ---
+    if (!m_handles_ready) return;
 
-    uint64_t pressed   = new_state.ulButtonPressed & ~m_prev_buttons;
-    uint64_t released  = m_prev_buttons & ~new_state.ulButtonPressed;
+    vr::VRActiveActionSet_t active{};
+    active.ulActionSet = m_action_set;
+    vr::VRInput()->UpdateActionState(&active, sizeof(active), 1);
 
-    static const struct { const char *name; vr::EVRButtonId id; } k_buttons[] = {
-        { "trigger",  vr::k_EButton_SteamVR_Trigger  },
-        { "grip",     vr::k_EButton_Grip              },
-        { "menu",     vr::k_EButton_ApplicationMenu   },
-        { "touchpad", vr::k_EButton_SteamVR_Touchpad  },
-        { "a",        vr::k_EButton_A                 },
-        { "system",   vr::k_EButton_System            },
+    // Read analog values
+    auto read1 = [](vr::VRActionHandle_t h) -> float {
+        vr::InputAnalogActionData_t d{};
+        vr::VRInput()->GetAnalogActionData(h, &d, sizeof(d), vr::k_ulInvalidInputValueHandle);
+        return d.bActive ? d.x : 0.0f;
+    };
+    auto read2 = [](vr::VRActionHandle_t h) -> Vector2 {
+        vr::InputAnalogActionData_t d{};
+        vr::VRInput()->GetAnalogActionData(h, &d, sizeof(d), vr::k_ulInvalidInputValueHandle);
+        return d.bActive ? Vector2(d.x, d.y) : Vector2();
     };
 
-    for (auto &b : k_buttons) {
-        uint64_t mask = vr::ButtonMaskFromId(b.id);
-        if (pressed  & mask) emit_signal("button_pressed",  String(b.name));
-        if (released & mask) emit_signal("button_released", String(b.name));
-    }
+    m_trigger_val    = read1(m_h_trigger);
+    m_grip_val       = read1(m_h_grip);
+    m_thumbstick_val = read2(m_h_thumbstick);
+    m_trackpad_val   = read2(m_h_trackpad);
 
-    m_state = new_state;
-    m_prev_buttons = new_state.ulButtonPressed;
+    // Read boolean + emit signals on edges
+    auto read_bool = [](vr::VRActionHandle_t h) -> bool {
+        vr::InputDigitalActionData_t d{};
+        vr::VRInput()->GetDigitalActionData(h, &d, sizeof(d), vr::k_ulInvalidInputValueHandle);
+        return d.bActive && d.bState;
+    };
+
+    struct { ButtonState &state; vr::VRActionHandle_t handle; const char *name; } btns[] = {
+        { m_btn_trigger_click,    m_h_trigger_click,    "trigger"   },
+        { m_btn_grip_click,       m_h_grip_click,       "grip"      },
+        { m_btn_a,                m_h_a,                "a"         },
+        { m_btn_b,                m_h_b,                "b"         },
+        { m_btn_thumbstick_click, m_h_thumbstick_click, "thumbstick"},
+        { m_btn_trackpad_click,   m_h_trackpad_click,   "trackpad"  },
+        { m_btn_system,           m_h_system,           "system"    },
+    };
+
+    for (auto &e : btns) {
+        e.state.prev = e.state.cur;
+        e.state.cur  = read_bool(e.handle);
+        if  (e.state.cur && !e.state.prev) emit_signal("button_pressed",  String(e.name));
+        if (!e.state.cur &&  e.state.prev) emit_signal("button_released", String(e.name));
+    }
 }
 
-void OpenVROverlayController3D::set_hand(Hand p_hand) { m_hand = p_hand; }
+// --- Property accessors ---
+
+void OpenVROverlayController3D::set_hand(Hand p_hand) {
+    if (m_hand != p_hand) {
+        m_hand = p_hand;
+        m_handles_ready = false; // re-resolve handles for the new hand
+    }
+}
 OpenVROverlayController3D::Hand OpenVROverlayController3D::get_hand() const { return m_hand; }
 bool OpenVROverlayController3D::get_is_active() const { return m_is_active; }
 bool OpenVROverlayController3D::get_has_tracking_data() const { return m_has_tracking_data; }
 
 bool OpenVROverlayController3D::is_button_pressed(const String &p_button) const {
-    uint64_t mask = _button_mask(p_button);
-    return mask && (m_state.ulButtonPressed & mask);
+    // Map button names → cached state
+    // "menu" is an alias for "b" (B button on Index, closest to a menu button)
+    // "touchpad" is an alias for "trackpad"
+    if (p_button == "trigger"    || p_button == "trigger_click") return m_btn_trigger_click.cur;
+    if (p_button == "grip"       || p_button == "grip_click")    return m_btn_grip_click.cur;
+    if (p_button == "a")                                          return m_btn_a.cur;
+    if (p_button == "b"          || p_button == "menu")          return m_btn_b.cur;
+    if (p_button == "thumbstick" || p_button == "thumbstick_click") return m_btn_thumbstick_click.cur;
+    if (p_button == "trackpad"   || p_button == "touchpad"
+                                 || p_button == "trackpad_click") return m_btn_trackpad_click.cur;
+    if (p_button == "system")                                     return m_btn_system.cur;
+    return false;
 }
 
 float OpenVROverlayController3D::get_trigger() const {
-    return m_state.rAxis[1].x;
+    return m_trigger_val;
 }
 
 Vector2 OpenVROverlayController3D::get_axis(int p_index) const {
-    if (p_index < 0 || p_index >= 5) return Vector2();
-    return Vector2(m_state.rAxis[p_index].x, m_state.rAxis[p_index].y);
+    // index 0 = thumbstick (primary joystick), index 1 = trackpad (capacitive surface)
+    if (p_index == 0) return m_thumbstick_val;
+    if (p_index == 1) return m_trackpad_val;
+    return Vector2();
 }

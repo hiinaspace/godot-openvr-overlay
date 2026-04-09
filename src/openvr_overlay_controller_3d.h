@@ -33,14 +33,45 @@ protected:
 
 private:
     void _do_process();
-    static uint64_t _button_mask(const String &p_button);
+    void _ensure_handles();
 
     Hand m_hand = HAND_LEFT;
     bool m_is_active = false;
     bool m_has_tracking_data = false;
 
-    vr::VRControllerState_t m_state{};
-    uint64_t m_prev_buttons = 0;
+    // IVRInput handles (initialized lazily once VRInput is available)
+    bool m_handles_ready = false;
+    vr::VRActionSetHandle_t m_action_set = vr::k_ulInvalidActionSetHandle;
+
+    vr::VRActionHandle_t m_h_trigger       = vr::k_ulInvalidActionHandle;
+    vr::VRActionHandle_t m_h_grip          = vr::k_ulInvalidActionHandle;
+    vr::VRActionHandle_t m_h_thumbstick    = vr::k_ulInvalidActionHandle;
+    vr::VRActionHandle_t m_h_trackpad      = vr::k_ulInvalidActionHandle;
+    vr::VRActionHandle_t m_h_trigger_click = vr::k_ulInvalidActionHandle;
+    vr::VRActionHandle_t m_h_grip_click    = vr::k_ulInvalidActionHandle;
+    vr::VRActionHandle_t m_h_a             = vr::k_ulInvalidActionHandle;
+    vr::VRActionHandle_t m_h_b             = vr::k_ulInvalidActionHandle;
+    vr::VRActionHandle_t m_h_thumbstick_click = vr::k_ulInvalidActionHandle;
+    vr::VRActionHandle_t m_h_trackpad_click   = vr::k_ulInvalidActionHandle;
+    vr::VRActionHandle_t m_h_system        = vr::k_ulInvalidActionHandle;
+
+    // Cached action state (updated each frame)
+    float   m_trigger_val    = 0.0f;
+    float   m_grip_val       = 0.0f;
+    Vector2 m_thumbstick_val;
+    Vector2 m_trackpad_val;
+
+    // Button state for edge detection
+    struct ButtonState { bool cur = false; bool prev = false; };
+    ButtonState m_btn_trigger_click;
+    ButtonState m_btn_grip_click;
+    ButtonState m_btn_a;
+    ButtonState m_btn_b;
+    ButtonState m_btn_thumbstick_click;
+    ButtonState m_btn_trackpad_click;
+    ButtonState m_btn_system;
+
+    // Pose tracking
     vr::TrackedDeviceIndex_t m_debug_last_device_idx = vr::k_unTrackedDeviceIndexInvalid;
 };
 

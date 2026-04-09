@@ -60,6 +60,12 @@ target_sources(${LIBNAME}
     src/openvr_overlay.cpp
     src/openvr_overlay.h
     src/openvr_math.h
+    src/openvr_overlay_origin_3d.cpp
+    src/openvr_overlay_origin_3d.h
+    src/openvr_overlay_camera_3d.cpp
+    src/openvr_overlay_camera_3d.h
+    src/openvr_overlay_controller_3d.cpp
+    src/openvr_overlay_controller_3d.h
 )
 
 target_include_directories(${LIBNAME} PRIVATE "${OPENVR_INCLUDE}")

@@ -73,6 +73,50 @@ void OpenVROverlay::_process(double /*delta*/) {
     if (!hmd_pose.bPoseIsValid)
         return;
 
+    if (!m_logged_projection_diagnostics) {
+        const float viewport_aspect = static_cast<float>(m_viewport_size.x) / static_cast<float>(m_viewport_size.y);
+        uint32_t rec_width = 0;
+        uint32_t rec_height = 0;
+        vr::VRSystem()->GetRecommendedRenderTargetSize(&rec_width, &rec_height);
+        const float recommended_aspect = rec_height != 0 ? static_cast<float>(rec_width) / static_cast<float>(rec_height) : 0.0f;
+
+        UtilityFunctions::print("OpenVROverlay: using Camera3D::set_frustum fallback",
+                                " viewport_size=", m_viewport_size,
+                                " viewport_aspect=", viewport_aspect,
+                                " recommended_rt=", Vector2i(static_cast<int32_t>(rec_width), static_cast<int32_t>(rec_height)),
+                                " recommended_aspect=", recommended_aspect);
+
+        for (vr::EVREye eye : {vr::Eye_Left, vr::Eye_Right}) {
+            float l, r, t, b;
+            vr::VRSystem()->GetProjectionRaw(eye, &l, &r, &t, &b);
+
+            const float godot_bottom = m_near_z * t;
+            const float godot_top = m_near_z * b;
+            const float godot_left = m_near_z * l;
+            const float godot_right = m_near_z * r;
+            const float exact_width = godot_right - godot_left;
+            const float exact_height = godot_top - godot_bottom;
+            const float exact_aspect = exact_height != 0.0f ? exact_width / exact_height : 0.0f;
+            const ovr_math::FrustumApproximation approx =
+                ovr_math::approximate_camera_frustum(godot_left, godot_right, godot_bottom, godot_top, viewport_aspect);
+            const float left_error = approx.left - godot_left;
+            const float right_error = approx.right - godot_right;
+            const float width_error = (approx.right - approx.left) - exact_width;
+            const float width_error_pct = exact_width != 0.0f ? (width_error / exact_width) * 100.0f : 0.0f;
+            const char *eye_name = eye == vr::Eye_Left ? "left" : "right";
+
+            UtilityFunctions::print("  eye=", eye_name,
+                                    " exact_aspect=", exact_aspect,
+                                    " set_frustum(size=", approx.size,
+                                    ", offset=", approx.offset,
+                                    ") width_error_pct=", width_error_pct,
+                                    " left_error=", left_error,
+                                    " right_error=", right_error);
+        }
+
+        m_logged_projection_diagnostics = true;
+    }
+
     const vr::HmdMatrix34_t &tracking_from_head = hmd_pose.mDeviceToAbsoluteTracking;
 
     // Submit previous frame's textures (one-frame delay ensures texture matches its projection)
@@ -119,11 +163,18 @@ void OpenVROverlay::_update_eye(vr::EVREye eye,
     eye_pose.origin *= world_scale;
     camera->set_global_transform(origin_xform * eye_pose);
 
-    // Set exact asymmetric projection via override_projection
+    // Approximate the OpenVR frustum using Camera3D::set_frustum().
+    // This matches exactly when the eye frustum aspect equals the viewport aspect.
     float l, r, t, b;
     vr::VRSystem()->GetProjectionRaw(eye, &l, &r, &t, &b);
-    Projection proj = ovr_math::make_projection(l, r, t, b, m_near_z, m_far_z);
-    camera->set_override_projection(proj);
+    const float godot_left = m_near_z * l;
+    const float godot_right = m_near_z * r;
+    const float godot_bottom = m_near_z * t;
+    const float godot_top = m_near_z * b;
+    const float viewport_aspect = static_cast<float>(m_viewport_size.x) / static_cast<float>(m_viewport_size.y);
+    const ovr_math::FrustumApproximation approx =
+        ovr_math::approximate_camera_frustum(godot_left, godot_right, godot_bottom, godot_top, viewport_aspect);
+    camera->set_frustum(approx.size, approx.offset, m_near_z, m_far_z);
 }
 
 void OpenVROverlay::_submit_eye(vr::EVREye eye,
@@ -273,8 +324,7 @@ void OpenVROverlay::_create_viewports() {
         add_child(vp_out);
 
         cam_out = memnew(Camera3D);
-        // Set a wide perspective for CPU culling; GPU projection is overridden per-frame
-        cam_out->set_perspective(120.0f, m_near_z, m_far_z);
+        cam_out->set_frustum(1.0f, Vector2(), m_near_z, m_far_z);
         cam_out->set_current(true);
         vp_out->add_child(cam_out);
     };

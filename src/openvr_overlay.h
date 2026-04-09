@@ -65,6 +65,7 @@ private:
     // Cached per-eye data from the previous frame (for one-frame-delay submission)
     bool m_has_prev_frame = false;
     vr::HmdMatrix34_t m_prev_tracking_from_head{};
+    bool m_logged_projection_diagnostics = false;
 
     // Exported property values
     float m_overlay_alpha = 1.0f;

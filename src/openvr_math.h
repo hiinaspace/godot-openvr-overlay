@@ -1,10 +1,18 @@
 #pragma once
 
 #include <godot_cpp/variant/transform3d.hpp>
-#include <godot_cpp/variant/projection.hpp>
 #include <openvr.h>
 
 namespace ovr_math {
+
+struct FrustumApproximation {
+    float size = 0.0f;
+    godot::Vector2 offset;
+    float left = 0.0f;
+    float right = 0.0f;
+    float bottom = 0.0f;
+    float top = 0.0f;
+};
 
 // Convert row-major HmdMatrix34_t to Godot Transform3D.
 // Both OpenVR and Godot use right-handed +Y up -Z forward, so no axis flip needed.
@@ -47,23 +55,23 @@ inline vr::HmdMatrix34_t invert(const vr::HmdMatrix34_t &m) {
     return result;
 }
 
-// Build an asymmetric OpenGL-style projection matrix from raw tangent frustum values.
-// frustum_left/right/top/bottom are the tangents from GetProjectionRaw().
-//
-// NOTE: OpenVR GetProjectionRaw uses screen-Y-down convention:
-//   top is negative (upper edge of frustum = -Y direction)
-//   bottom is positive (lower edge of frustum = +Y direction)
-// Godot's create_frustum uses +Y-up convention: bottom < 0, top > 0.
-// So we swap top/bottom when passing to Godot.
-inline godot::Projection make_projection(float frustum_left, float frustum_right,
-                                         float frustum_top, float frustum_bottom,
-                                         float near_z, float far_z) {
-    float l = near_z * frustum_left;
-    float r = near_z * frustum_right;
-    // OpenVR top (negative) becomes Godot bottom; OpenVR bottom (positive) becomes Godot top
-    float godot_bottom = near_z * frustum_top;
-    float godot_top    = near_z * frustum_bottom;
-    return godot::Projection::create_frustum(l, r, godot_bottom, godot_top, near_z, far_z);
+// Approximate an arbitrary frustum with Camera3D::set_frustum(size, offset, near, far),
+// whose width/height ratio is locked to the viewport aspect.
+inline FrustumApproximation approximate_camera_frustum(float left, float right,
+                                                       float bottom, float top,
+                                                       float viewport_aspect) {
+    FrustumApproximation result;
+    result.size = top - bottom;
+    result.offset = godot::Vector2((left + right) * 0.5f, (bottom + top) * 0.5f);
+
+    const float half_width = result.size * viewport_aspect * 0.5f;
+    const float half_height = result.size * 0.5f;
+
+    result.left = result.offset.x - half_width;
+    result.right = result.offset.x + half_width;
+    result.bottom = result.offset.y - half_height;
+    result.top = result.offset.y + half_height;
+    return result;
 }
 
 } // namespace ovr_math

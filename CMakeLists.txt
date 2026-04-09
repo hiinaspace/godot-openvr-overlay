@@ -25,9 +25,6 @@ if(NOT EXISTS "${CMAKE_CURRENT_LIST_DIR}/godot-cpp/src")
     )
 endif()
 
-# Use custom extension_api.json from our patched Godot build (has camera_set_override_projection)
-set(GODOTCPP_CUSTOM_API_FILE "${CMAKE_CURRENT_LIST_DIR}/extension_api.json" CACHE FILEPATH "Custom extension API JSON")
-
 add_subdirectory(godot-cpp SYSTEM)
 
 # Add godot-cpp's module path and include the exported functions.

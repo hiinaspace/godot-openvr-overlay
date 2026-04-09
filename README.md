@@ -1,5 +1,17 @@
-# godot-cpp template
-This repository serves as a quickstart template for GDExtension development with Godot 4.0+.
+# godot-openvr-overlay
+This repository contains a GDExtension for rendering Godot scenes as OpenVR projective overlays.
+
+## Projection notes
+
+The overlay cameras now use `Camera3D::set_frustum()` instead of a custom override-projection patch.
+This means the eye frustum is approximated using the current viewport aspect ratio.
+
+On the locally tested headset, SteamVR reported these per-eye aspect ratios:
+
+* left eye: `1.0155` exact vs `1.0` viewport, about `-1.52%` width error
+* right eye: `1.0072` exact vs `1.0` viewport, about `-0.72%` width error
+
+At startup the plugin logs the chosen frustum parameters and the measured error once, so other headsets can be checked easily.
 
 ## Contents
 * Preconfigured source files for C++ development of the GDExtension ([src/](./src/))

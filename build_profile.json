@@ -1,5 +1,5 @@
 {
-	"_": "This is an example build profile and not used by default. See the SConstruct file for more information.",
+	"_": "Optional Godot C++ build profile for the legacy SCons build path. Not used by default.",
 	"type": "feature_profile",
 	"enabled_classes": [
 		"Node3D",

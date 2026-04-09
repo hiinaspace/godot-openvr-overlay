@@ -41,6 +41,27 @@ as godot's [regular XR nodes](https://docs.godotengine.org/en/stable/tutorials/x
   * I don't think Oculus link/virtual desktop does either, so probably have to use steam link (I don't have a meta headset to test)
 * Compatibility renderer (`gl_compatibility`), not Mobile/Forward+
 
+## Download / Install
+
+Prebuilt packages are attached to tagged releases:
+
+https://github.com/hiinaspace/godot-openvr-overlay/releases/latest
+
+Install into a Godot project by copying these files from the release zip into your project root:
+
+* `bin/`
+* `actions.json`
+* `bindings_knuckles.json`
+
+That should give you:
+
+* `res://bin/godot-openvr-overlay.gdextension`
+* `res://bin/windows/*.dll`
+* `res://actions.json`
+* `res://bindings_knuckles.json`
+
+The included binaries are currently Windows `x86_64` only.
+
 ## Limitations
 
 ### Projection Accuracy

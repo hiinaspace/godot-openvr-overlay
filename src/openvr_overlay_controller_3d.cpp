@@ -54,8 +54,20 @@ void OpenVROverlayController3D::_process(double /*delta*/) {
         ? vr::TrackedControllerRole_LeftHand
         : vr::TrackedControllerRole_RightHand;
 
+    // Try direct role lookup first; fall back to enumeration (needed in overlay mode)
     vr::TrackedDeviceIndex_t device_idx =
         vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(role);
+
+    if (device_idx == vr::k_unTrackedDeviceIndexInvalid) {
+        for (uint32_t i = 1; i < vr::k_unMaxTrackedDeviceCount; ++i) {
+            if (vr::VRSystem()->GetTrackedDeviceClass(i) != vr::TrackedDeviceClass_Controller)
+                continue;
+            if (vr::VRSystem()->GetControllerRoleForTrackedDeviceIndex(i) == role) {
+                device_idx = i;
+                break;
+            }
+        }
+    }
 
     if (device_idx == vr::k_unTrackedDeviceIndexInvalid) {
         m_is_active = false;

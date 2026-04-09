@@ -1,4 +1,5 @@
 #include "openvr_overlay.h"
+#include "openvr_overlay_origin_3d.h"
 #include "openvr_math.h"
 
 #include <godot_cpp/core/class_db.hpp>
@@ -87,6 +88,20 @@ void OpenVROverlay::_process(double /*delta*/) {
     m_has_prev_frame = true;
 }
 
+// Find the first OpenVROverlayOrigin3D direct child, return its transform + world_scale.
+// If none found, returns identity transform and scale 1.
+void OpenVROverlay::_find_origin(Transform3D &r_xform, float &r_scale) const {
+    r_xform = Transform3D();
+    r_scale = 1.0f;
+    for (int i = 0; i < get_child_count(); ++i) {
+        if (auto *origin = Object::cast_to<OpenVROverlayOrigin3D>(get_child(i))) {
+            r_xform = origin->get_global_transform();
+            r_scale = origin->get_world_scale();
+            return;
+        }
+    }
+}
+
 void OpenVROverlay::_update_eye(vr::EVREye eye,
                                  const vr::HmdMatrix34_t &tracking_from_head,
                                  SubViewport * /*viewport*/,
@@ -94,7 +109,14 @@ void OpenVROverlay::_update_eye(vr::EVREye eye,
     vr::HmdMatrix34_t head_from_eye = vr::VRSystem()->GetEyeToHeadTransform(eye);
     vr::HmdMatrix34_t tracking_from_eye = ovr_math::multiply(tracking_from_head, head_from_eye);
 
-    camera->set_global_transform(ovr_math::to_godot(tracking_from_eye));
+    // Apply origin transform so moving/scaling OpenVROverlayOrigin3D shifts the rendered world
+    Transform3D origin_xform;
+    float world_scale;
+    _find_origin(origin_xform, world_scale);
+
+    Transform3D eye_pose = ovr_math::to_godot(tracking_from_eye);
+    eye_pose.origin *= world_scale;
+    camera->set_global_transform(origin_xform * eye_pose);
 
     // Set exact asymmetric projection via override_projection
     float l, r, t, b;

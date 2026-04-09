@@ -42,6 +42,7 @@ private:
     void _shutdown_openvr();
     void _create_viewports();
     void _destroy_viewports();
+    void _find_origin(Transform3D &r_xform, float &r_scale) const;
     void _update_eye(vr::EVREye eye,
                      const vr::HmdMatrix34_t &tracking_from_head,
                      SubViewport *viewport,

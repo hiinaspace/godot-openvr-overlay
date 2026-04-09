@@ -1,8 +1,13 @@
 [gd_scene format=3 uid="uid://demo"]
 
 [ext_resource type="Script" uid="uid://bbekocwcea242" path="res://demo.gd" id="1_demo"]
+[ext_resource type="Texture2D" uid="uid://dbx66sovxd1" path="res://icon.svg" id="2_0bhed"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_m0rpm"]
+albedo_texture = ExtResource("2_0bhed")
 
 [sub_resource type="BoxMesh" id="BoxMesh_1"]
+material = SubResource("StandardMaterial3D_m0rpm")
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_5hfv0"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)

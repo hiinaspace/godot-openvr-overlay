@@ -43,6 +43,8 @@ If you know how to do this better, open an Issue/PR.
   * I don't think Oculus link/virtual desktop does either, so probably have to
     use steam link (I don't have a meta headset to test).
 * Compatibility renderer (`gl_compatibility`), not Mobile/Forward+
+	* I actually realize that OpenVR does support vulkan textures now, so I
+	  might add support for those renderers later.
 * Windows x86_64
   * SteamVR/OpenVR theoreticaly works on Linux but not for me, so I
     didn't bother testing/building.

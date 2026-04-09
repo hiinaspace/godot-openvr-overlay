@@ -1,104 +1,87 @@
-# For syntax, see https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
-# This workflow is triggered manually on the "Actions" tab on GitHub, and can be used to create releases.
+name: Build Release Package
 
-name: Make a GDExtension build for all supported platforms
 on:
   workflow_dispatch:
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        # A build is made for every possible combination of parameters
-        # You can add or remove entries from the arrays of each parameter to customize which builds you want to run.
-        # See https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow
-        target:
-          [
-            { platform: linux, arch: x86_64, os: ubuntu-22.04 },
-            { platform: linux, arch: x86_32, os: ubuntu-22.04 },
-            { platform: linux, arch: arm64, os: ubuntu-22.04-arm },
-            { platform: linux, arch: arm32, os: ubuntu-22.04-arm },
-            { platform: windows, arch: x86_64, os: windows-latest },
-            { platform: windows, arch: x86_32, os: windows-latest },
-            { platform: windows, arch: arm64, os: windows-latest },
-            { platform: macos, arch: universal, os: macos-latest },
-            { platform: android, arch: x86_64, os: ubuntu-22.04 },
-            { platform: android, arch: x86_32, os: ubuntu-22.04 },
-            { platform: android, arch: arm64, os: ubuntu-22.04 },
-            { platform: android, arch: arm32, os: ubuntu-22.04 },
-            { platform: ios, arch: arm64, os: macos-latest },
-            { platform: web, arch: wasm32, os: ubuntu-22.04 },
-          ]
-        target-type: [template_debug, template_release]
-        float-precision: [single]
-
-    runs-on: ${{ matrix.target.os }}
+  build-windows:
+    runs-on: windows-latest
     steps:
-      # Clone this repository
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
 
-      # Add linux x86_32 toolchain
-      - name: Install multilib support
-        if: ${{ matrix.target.platform == 'linux' && matrix.target.arch == 'x86_32' }}
-        run: |
-          sudo apt-get update && sudo apt-get install -y gcc-multilib g++-multilib
+      - name: Setup Python
+        uses: actions/setup-python@v5
 
-      # Setup dependencies
-      - name: Setup godot-cpp
-        uses: ./godot-cpp/.github/actions/setup-godot-cpp
-        with:
-          platform: ${{ matrix.target.platform }}
-          em-version: 3.1.62
-
-      # Build GDExtension (with caches)
-
-      - name: Restore .scons_cache
-        uses: ./godot-cpp/.github/actions/godot-cache-restore
-        with:
-          scons-cache: ${{ github.workspace }}/.scons-cache/
-          cache-name: ${{ matrix.target.platform }}_${{ matrix.target.arch }}_${{ matrix.float-precision }}_${{ matrix.target-type }}
-
-      - name: Build GDExtension Debug Build
-        shell: sh
-        env:
-          SCONS_CACHE: ${{ github.workspace }}/.scons-cache/
-        run: |
-          scons target=${{ matrix.target-type }} platform=${{ matrix.target.platform }} arch=${{ matrix.target.arch }} precision=${{ matrix.float-precision }}
-
-      - name: Save .scons_cache
-        uses: ./godot-cpp/.github/actions/godot-cache-save
-        with:
-          scons-cache: ${{ github.workspace }}/.scons-cache/
-          cache-name: ${{ matrix.target.platform }}_${{ matrix.target.arch }}_${{ matrix.float-precision }}_${{ matrix.target-type }}
-
-      # Clean up compilation files
-      - name: Windows - Delete compilation files
-        if: ${{ matrix.target.platform == 'windows' }}
+      - name: Install SCons
         shell: pwsh
         run: |
-          Remove-Item bin/* -Include *.exp,*.lib,*.pdb -Force
+          python -m pip install scons==4.10.1
+          scons --version
 
-      # Upload the build
-      - name: Upload Artifact
+      - name: Fetch OpenVR SDK
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/ValveSoftware/openvr.git openvr
+
+      - name: Build template_debug
+        shell: pwsh
+        run: |
+          scons platform=windows arch=x86_64 target=template_debug OPENVR_DIR="$env:GITHUB_WORKSPACE\openvr"
+
+      - name: Build template_release
+        shell: pwsh
+        run: |
+          scons platform=windows arch=x86_64 target=template_release OPENVR_DIR="$env:GITHUB_WORKSPACE\openvr"
+
+      - name: Remove build-only outputs
+        shell: pwsh
+        run: |
+          Get-ChildItem project\bin\windows -Include *.exp,*.lib,*.pdb -File | Remove-Item -Force
+          Remove-Item project\bin\godot-openvr-overlay.gdextension.uid -Force -ErrorAction SilentlyContinue
+
+      - name: Upload project bin
         uses: actions/upload-artifact@v4
         with:
-          name: godot-cpp-template-${{ matrix.target.platform }}-${{ matrix.target.arch }}-${{ matrix.float-precision }}-${{ matrix.target-type }}
-          path: |
-            ${{ github.workspace }}/bin/**
+          name: project-bin-windows-x86_64
+          path: project/bin/
 
-  # Merges all the build artifacts together into a single godot-cpp-template artifact.
-  # If you comment out this step, all the builds will be uploaded individually.
-  merge:
-    runs-on: ubuntu-22.04
-    needs: build
+  package:
+    needs: build-windows
+    runs-on: ubuntu-latest
     steps:
-      - name: Merge Artifacts
-        uses: actions/upload-artifact/merge@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set short git commit SHA
+        run: |
+          echo "COMMIT_SHORT_SHA=$(git rev-parse --short ${{ github.sha }})" >> $GITHUB_ENV
+
+      - name: Download built bin payload
+        uses: actions/download-artifact@v4
         with:
-          name: godot-cpp-template
-          pattern: godot-cpp-template-*
-          delete-merged: true
+          name: project-bin-windows-x86_64
+          path: artifacts/project-bin
+
+      - name: Package release zip
+        run: |
+          mkdir -p godot-openvr-overlay/bin
+          cp -r artifacts/project-bin/* godot-openvr-overlay/bin/
+          find godot-openvr-overlay/bin -name '.gitkeep' -delete
+          find godot-openvr-overlay/bin -name '*.exp' -delete
+          find godot-openvr-overlay/bin -name '*.lib' -delete
+          find godot-openvr-overlay/bin -name '*.pdb' -delete
+          find godot-openvr-overlay/bin -name '*.uid' -delete
+          cp project/actions.json godot-openvr-overlay/
+          cp project/bindings_knuckles.json godot-openvr-overlay/
+          cp LICENSE.md godot-openvr-overlay/
+          cp README.md godot-openvr-overlay/
+          zip -r "godot-openvr-overlay-windows-x86_64-${COMMIT_SHORT_SHA}.zip" godot-openvr-overlay
+
+      - name: Upload release zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-openvr-overlay-windows-x86_64-${{ env.COMMIT_SHORT_SHA }}
+          path: godot-openvr-overlay-windows-x86_64-${{ env.COMMIT_SHORT_SHA }}.zip

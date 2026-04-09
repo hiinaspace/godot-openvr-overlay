@@ -22,6 +22,7 @@ customs = ["custom.py"]
 customs = [os.path.abspath(path) for path in customs]
 
 opts = Variables(customs, ARGUMENTS)
+opts.Add("OPENVR_DIR", "Path to an OpenVR SDK checkout or release bundle", "")
 opts.Update(localEnv)
 
 Help(opts.GenerateHelpText(localEnv))
@@ -37,7 +38,48 @@ Run the following command to download godot-cpp:
 
 env = SConscript("godot-cpp/SConstruct", {"env": env, "customs": customs})
 
+openvr_dir = ARGUMENTS.get("OPENVR_DIR", env.get("OPENVR_DIR", os.path.abspath("openvr")))
+openvr_include_dir = os.path.join(openvr_dir, "headers")
+
+platform_lib_dirs = {
+    "windows": {
+        "x86_64": os.path.join(openvr_dir, "lib", "win64"),
+        "x86_32": os.path.join(openvr_dir, "lib", "win32"),
+    },
+    "linux": {
+        "x86_64": os.path.join(openvr_dir, "lib", "linux64"),
+        "x86_32": os.path.join(openvr_dir, "lib", "linux32"),
+        "arm64": os.path.join(openvr_dir, "lib", "linuxarm64"),
+    },
+    "macos": {
+        "universal": os.path.join(openvr_dir, "lib", "osx32"),
+        "x86_64": os.path.join(openvr_dir, "lib", "osx32"),
+    },
+}
+
+platform_runtime_files = {
+    "windows": {
+        "x86_64": os.path.join(openvr_dir, "bin", "win64", "openvr_api.dll"),
+        "x86_32": os.path.join(openvr_dir, "bin", "win32", "openvr_api.dll"),
+    },
+}
+
+arch = env.get("arch", "x86_64")
+platform = env["platform"]
+openvr_lib_dir = platform_lib_dirs.get(platform, {}).get(arch)
+
+if not os.path.isfile(os.path.join(openvr_include_dir, "openvr.h")) or not openvr_lib_dir or not os.path.isdir(openvr_lib_dir):
+    print_error(
+        "No valid OpenVR SDK was found for this build.\n"
+        "Set OPENVR_DIR to an OpenVR SDK checkout or unpacked release containing headers/ and lib/."
+    )
+    sys.exit(1)
+
 env.Append(CPPPATH=["src/"])
+env.Append(CPPPATH=[openvr_include_dir])
+env.Append(LIBPATH=[openvr_lib_dir])
+env.Append(LIBS=["openvr_api"])
+
 sources = Glob("src/*.cpp")
 
 if env["target"] in ["editor", "template_debug"]:
@@ -61,4 +103,10 @@ library = env.SharedLibrary(
 copy = env.Install("{}/bin/{}/".format(projectdir, env["platform"]), library)
 
 default_args = [library, copy]
+
+runtime_file = platform_runtime_files.get(platform, {}).get(arch)
+if runtime_file and os.path.isfile(runtime_file):
+    runtime_copy = env.Install("{}/bin/{}/".format(projectdir, env["platform"]), runtime_file)
+    default_args.append(runtime_copy)
+
 Default(*default_args)

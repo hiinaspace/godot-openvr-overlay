@@ -4,8 +4,13 @@
 
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <godot_cpp/classes/object.hpp>
 
 using namespace godot;
+
+void OpenVROverlayController3D::_ready() {
+    set_process(true);
+}
 
 // Map button name string → EVRButtonId bitmask
 uint64_t OpenVROverlayController3D::_button_mask(const String &p_button) {
@@ -43,7 +48,12 @@ void OpenVROverlayController3D::_bind_methods() {
     ADD_SIGNAL(MethodInfo("button_released", PropertyInfo(Variant::STRING, "button_name")));
 }
 
-void OpenVROverlayController3D::_process(double /*delta*/) {
+void OpenVROverlayController3D::_notification(int p_what) {
+    if (p_what != NOTIFICATION_PROCESS) return;
+    _do_process();
+}
+
+void OpenVROverlayController3D::_do_process() {
     if (!vr::VRSystem()) {
         m_is_active = false;
         m_has_tracking_data = false;
@@ -67,6 +77,24 @@ void OpenVROverlayController3D::_process(double /*delta*/) {
                 break;
             }
         }
+    }
+
+    // Debug: print whenever device_idx changes (includes going to/from invalid)
+    if (device_idx != m_debug_last_device_idx) {
+        const char *hand_str = (m_hand == HAND_LEFT) ? "left" : "right";
+        if (device_idx == vr::k_unTrackedDeviceIndexInvalid) {
+            UtilityFunctions::print("OpenVROverlayController3D [", hand_str, "]: no device found");
+            // Dump all connected controllers for diagnosis
+            for (uint32_t i = 1; i < vr::k_unMaxTrackedDeviceCount; ++i) {
+                auto cls = vr::VRSystem()->GetTrackedDeviceClass(i);
+                if (cls == vr::TrackedDeviceClass_Invalid) continue;
+                auto r = vr::VRSystem()->GetControllerRoleForTrackedDeviceIndex(i);
+                UtilityFunctions::print("  device ", (int64_t)i, " class=", (int64_t)cls, " role=", (int64_t)r);
+            }
+        } else {
+            UtilityFunctions::print("OpenVROverlayController3D [", hand_str, "]: found device_idx=", (int64_t)device_idx);
+        }
+        m_debug_last_device_idx = device_idx;
     }
 
     if (device_idx == vr::k_unTrackedDeviceIndexInvalid) {

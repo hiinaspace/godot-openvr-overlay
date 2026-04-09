@@ -15,7 +15,8 @@ public:
         HAND_RIGHT = 1,
     };
 
-    void _process(double delta) override;
+    void _ready() override;
+    void _notification(int p_what);
 
     void set_hand(Hand p_hand);
     Hand get_hand() const;
@@ -31,6 +32,7 @@ protected:
     static void _bind_methods();
 
 private:
+    void _do_process();
     static uint64_t _button_mask(const String &p_button);
 
     Hand m_hand = HAND_LEFT;
@@ -39,6 +41,7 @@ private:
 
     vr::VRControllerState_t m_state{};
     uint64_t m_prev_buttons = 0;
+    vr::TrackedDeviceIndex_t m_debug_last_device_idx = vr::k_unTrackedDeviceIndexInvalid;
 };
 
 } // namespace godot

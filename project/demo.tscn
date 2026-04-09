@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://demo"]
 
 [ext_resource type="Script" uid="uid://bbekocwcea242" path="res://demo.gd" id="1_demo"]
-[ext_resource type="Script" path="res://controller_debug.gd" id="2_ctrldbg"]
+[ext_resource type="Script" uid="uid://e5cyeauglyei" path="res://controller_debug.gd" id="2_ctrldbg"]
 [ext_resource type="Texture2D" uid="uid://dbx66sovxd1" path="res://icon.svg" id="3_0bhed"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_m0rpm"]
@@ -9,14 +9,6 @@ albedo_texture = ExtResource("3_0bhed")
 
 [sub_resource type="BoxMesh" id="BoxMesh_1"]
 material = SubResource("StandardMaterial3D_m0rpm")
-
-[sub_resource type="SphereMesh" id="SphereMesh_left"]
-radius = 0.04
-height = 0.08
-
-[sub_resource type="SphereMesh" id="SphereMesh_right"]
-radius = 0.04
-height = 0.08
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_5hfv0"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -29,6 +21,14 @@ sky_material = SubResource("ProceduralSkyMaterial_5hfv0")
 background_mode = 2
 sky = SubResource("Sky_0bhed")
 tonemap_mode = 2
+
+[sub_resource type="SphereMesh" id="SphereMesh_left"]
+radius = 0.04
+height = 0.08
+
+[sub_resource type="SphereMesh" id="SphereMesh_right"]
+radius = 0.04
+height = 0.08
 
 [node name="Demo" type="Node3D" unique_id=1113424459]
 script = ExtResource("1_demo")
@@ -49,29 +49,31 @@ shadow_enabled = true
 [node name="OpenVROverlayOrigin3D" type="OpenVROverlayOrigin3D" parent="OpenVROverlay" unique_id=100000001]
 
 [node name="OpenVROverlayCamera3D" type="OpenVROverlayCamera3D" parent="OpenVROverlay/OpenVROverlayOrigin3D" unique_id=100000002]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
 
 [node name="LeftController" type="OpenVROverlayController3D" parent="OpenVROverlay/OpenVROverlayOrigin3D" unique_id=100000003]
-hand = 0
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 1.5, 0)
 script = ExtResource("2_ctrldbg")
 
 [node name="ControllerMesh" type="MeshInstance3D" parent="OpenVROverlay/OpenVROverlayOrigin3D/LeftController" unique_id=100000004]
 mesh = SubResource("SphereMesh_left")
 
 [node name="Label3D" type="Label3D" parent="OpenVROverlay/OpenVROverlayOrigin3D/LeftController" unique_id=100000005]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, 0)
-pixel_size = 0.002
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.120000005, -0.1)
+pixel_size = 0.0005
 text = "left controller"
 font_size = 24
 
 [node name="RightController" type="OpenVROverlayController3D" parent="OpenVROverlay/OpenVROverlayOrigin3D" unique_id=100000006]
 hand = 1
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1.5, 0)
 script = ExtResource("2_ctrldbg")
 
 [node name="ControllerMesh" type="MeshInstance3D" parent="OpenVROverlay/OpenVROverlayOrigin3D/RightController" unique_id=100000007]
 mesh = SubResource("SphereMesh_right")
 
 [node name="Label3D" type="Label3D" parent="OpenVROverlay/OpenVROverlayOrigin3D/RightController" unique_id=100000008]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, 0)
-pixel_size = 0.002
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.120000005, -0.1)
+pixel_size = 0.0005
 text = "right controller"
 font_size = 24

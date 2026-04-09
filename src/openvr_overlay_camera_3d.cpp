@@ -3,8 +3,13 @@
 #include "openvr_math.h"
 
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/classes/object.hpp>
 
 using namespace godot;
+
+void OpenVROverlayCamera3D::_ready() {
+    set_process(true);
+}
 
 void OpenVROverlayCamera3D::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_has_tracking_data"), &OpenVROverlayCamera3D::get_has_tracking_data);
@@ -12,7 +17,12 @@ void OpenVROverlayCamera3D::_bind_methods() {
         "", "get_has_tracking_data");
 }
 
-void OpenVROverlayCamera3D::_process(double /*delta*/) {
+void OpenVROverlayCamera3D::_notification(int p_what) {
+    if (p_what != NOTIFICATION_PROCESS) return;
+    _do_process();
+}
+
+void OpenVROverlayCamera3D::_do_process() {
     if (!vr::VRSystem()) {
         m_has_tracking_data = false;
         return;

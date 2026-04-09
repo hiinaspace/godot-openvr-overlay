@@ -2,7 +2,7 @@
 
 This is a Godot extension for making 3D overlays on top of other SteamVR/OpenVR apps. Essentially it's Augmented Reality (AR) for VR.
 
-![godot-openvr-overlay-demo.avif](demo scene running in front of Half Life Alyx)
+![demo scene running in front of Half Life Alyx](godot-openvr-overlay-demo.avif)
 
 It works by rendering a godot 3d scene into SteamVR/OpenVR's "projective"
 overlays. It also exposes the playspace origin, headset/camera and controller
@@ -38,8 +38,12 @@ as godot's [regular XR nodes](https://docs.godotengine.org/en/stable/tutorials/x
 * Godot `4.6+`
 * SteamVR / OpenVR runtime, not OpenXR
   * SteamVR's OpenXR API doesn't expose a similar overlay like this unfortunately.
-  * I don't think Oculus link/virtual desktop does either, so probably have to use steam link (I don't have a meta headset to test)
+  * I don't think Oculus link/virtual desktop does either, so probably have to
+    use steam link (I don't have a meta headset to test).
 * Compatibility renderer (`gl_compatibility`), not Mobile/Forward+
+* Windows x86_64
+  * SteamVR/OpenVR theoreticaly works on Linux but not for me, so I
+    didn't bother testing/building.
 
 ## Download / Install
 
@@ -47,20 +51,7 @@ Prebuilt packages are attached to tagged releases:
 
 https://github.com/hiinaspace/godot-openvr-overlay/releases/latest
 
-Install into a Godot project by copying these files from the release zip into your project root:
-
-* `bin/`
-* `actions.json`
-* `bindings_knuckles.json`
-
-That should give you:
-
-* `res://bin/godot-openvr-overlay.gdextension`
-* `res://bin/windows/*.dll`
-* `res://actions.json`
-* `res://bindings_knuckles.json`
-
-The included binaries are currently Windows `x86_64` only.
+Extract the zip into your project's `addons/` directory.
 
 ## Limitations
 
@@ -84,7 +75,20 @@ WaitGetPoses().
 
 I don't think there's a good way to compensate for this, but if you know of one, please open an issue or PR.
 
-## Wow I want to make an overlay but I don't like godot, what do
+## Wait how is this different than [godot_openvr](https://github.com/GodotVR/godot_openvr)?
+
+This addon only supports making overlay apps, not regular OpenVR apps aka "Scene" applications.
+It also doesn't use/subclass the real Godot XR nodes or XRServer. Having separate (but conceptually similar)
+nodes felt cleaner to me than trying to figure out where things can be exactly the same and where they
+have to awkwardly differ for an overlay app.
+
+I'll probably revisit this decision at some point. Open an issue/contact me if
+you have ideas on how best to do this.
+
+FWIW if you are making a regular VR app in 2026, you should probably use OpenXR
+anyway, which is also built in to godot itself, instead of OpenVR.
+
+## Wow I want to make an overlay but I don't like godot, what do?
 
 Lucky for you I also have a very minimal demo of projection overlays in
 

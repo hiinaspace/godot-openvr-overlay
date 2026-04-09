@@ -25,13 +25,15 @@ The extension currently registers these main node types:
 The OpenVROverlay node is essentially the viewport for the overlay and the other nodes act essentially the same
 as godot's [regular XR nodes](https://docs.godotengine.org/en/stable/tutorials/xr/index.html). Typical setup is:
 
-* `OpenVROverlay` as the overlay root
-* one `OpenVROverlayOrigin3D` child to define the tracking-space origin and world scale
-* normal scene content parented under the overlay
-* optional `OpenVROverlayCamera3D` / `OpenVROverlayController3D` nodes under the origin for tracked devices
-* read controller inputs from the controller nodes
-	* There is a openVR action map defined, but I honestly really don't understand the binding system so no idea
-	  if it'll work for you.
+* `OpenVROverlay` as the overlay root/viewport.
+  * normal scene content parented under the overlay
+  * one `OpenVROverlayOrigin3D` child to define the tracking-space origin and world scale
+    * `OpenVROverlayCamera3D` node to track the head
+    * `OpenVROverlayController3D` for each controller
+
+You read controller inputs from the controller nodes. There is a openVR
+action map defined, but I honestly really don't understand how the binding system works;
+If you know how to do this better, open an Issue/PR.
 
 ## Requirements
 

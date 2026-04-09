@@ -1,68 +1,72 @@
 # godot-openvr-overlay
-This repository contains a GDExtension for rendering Godot scenes as OpenVR projective overlays.
 
-## Projection notes
+This is a Godot extension for making 3D overlays on top of other SteamVR/OpenVR apps. Essentially it's Augmented Reality (AR) for VR.
 
-The overlay cameras now use `Camera3D::set_frustum()` instead of a custom override-projection patch.
-This means the eye frustum is approximated using the current viewport aspect ratio.
+![godot-openvr-overlay-demo.avif](demo scene running in front of Half Life Alyx)
 
-On the locally tested headset, SteamVR reported these per-eye aspect ratios:
+It works by rendering a godot 3d scene into SteamVR/OpenVR's "projective"
+overlays. It also exposes the playspace origin, headset/camera and controller
+poses, so you can make overlays in a similar way to making a regular godot VR
+game.
 
-* left eye: `1.0155` exact vs `1.0` viewport, about `-1.52%` width error
-* right eye: `1.0072` exact vs `1.0` viewport, about `-0.72%` width error
+The repository includes a sample project in [project](./project). The default
+scene shows a rotating cube and some debug text for each controller, plus a very
+basic physics demo if you press the right trigger.
 
-At startup the plugin logs the chosen frustum parameters and the measured error once, so other headsets can be checked easily.
+## Scene API
 
-## Contents
-* Preconfigured source files for C++ development of the GDExtension ([src/](./src/))
-* An empty Godot project in [project/](./project), to test the GDExtension
-* godot-cpp as a submodule (`godot-cpp/`)
-* GitHub Issues template ([.github/ISSUE_TEMPLATE.yml](./.github/ISSUE_TEMPLATE.yml))
-* GitHub CI/CD workflows to publish your library packages when creating a release ([.github/workflows/builds.yml](./.github/workflows/builds.yml))
-* An SConstruct file with various functions, such as boilerplate for [Adding documentation](https://docs.godotengine.org/en/stable/tutorials/scripting/cpp/gdextension_docs_system.html)
+The extension currently registers these main node types:
 
-## Usage - Template
+* `OpenVROverlay`
+* `OpenVROverlayOrigin3D`
+* `OpenVROverlayCamera3D`
+* `OpenVROverlayController3D`
 
-To use this template, log in to GitHub and click the green "Use this template" button at the top of the repository page. This will let you create a copy of this repository with a clean git history.
+The OpenVROverlay node is essentially the viewport for the overlay and the other nodes act essentially the same
+as godot's [regular XR nodes](https://docs.godotengine.org/en/stable/tutorials/xr/index.html). Typical setup is:
 
-To get started with your new GDExtension, do the following:
+* `OpenVROverlay` as the overlay root
+* one `OpenVROverlayOrigin3D` child to define the tracking-space origin and world scale
+* normal scene content parented under the overlay
+* optional `OpenVROverlayCamera3D` / `OpenVROverlayController3D` nodes under the origin for tracked devices
+* read controller inputs from the controller nodes
+	* There is a openVR action map defined, but I honestly really don't understand the binding system so no idea
+	  if it'll work for you.
 
-* clone your repository to your local computer
-* initialize the godot-cpp git submodule via `git submodule update --init`
-* change the name of the compiled library file inside the [SConstruct](./SConstruct) file by modifying the `libname` string.
-  * change the paths of the to be loaded library name inside the [project/bin/example.gdextension](./project/bin/example.gdextension) file, by replacing `EXTENSION-NAME` with the name you chose for `libname`.
-* change the `entry_symbol` string inside [project/bin/example.gdextension](./project/bin/example.gdextension) file.
-  * rename the `example_library_init` function in [src/register_types.cpp](./src/register_types.cpp) to the same name you chose for `entry_symbol`.
-* change the name of the `project/bin/example.gdextension` file
+## Requirements
 
-Now, you can build the project with the following command:
+* Godot `4.6+`
+* SteamVR / OpenVR runtime, not OpenXR
+  * SteamVR's OpenXR API doesn't expose a similar overlay like this unfortunately.
+  * I don't think Oculus link/virtual desktop does either, so probably have to use steam link (I don't have a meta headset to test)
+* Compatibility renderer (`gl_compatibility`), not Mobile/Forward+
 
-```shell
-scons
-```
+## Limitations
 
-If the build command worked, you can test it with the [project](./project) project. Import it into Godot, open it, and launch the main scene. You should see it print the following line in the console:
+### Projection Accuracy
 
-```
-Type: 24
-```
+Godot does not expose arbitrary camera projection matrices through the stock
+GDExtension API in a way this plugin can rely on for release builds, so the eye
+camera projection currently uses `Camera3D::set_frustum()` as an approximation.
+On the the Bigscreen Beyond 2 I tested this on, it was close enough in practice,
+but still looks slightly "off".
 
-### Configuring an IDE
-You can develop your own extension with any text editor and by invoking scons on the command line, but if you want to work with an IDE (Integrated Development Environment), you can use a compilation database file called `compile_commands.json`. Most IDEs should automatically identify this file, and self-configure appropriately.
-To generate the database file, you can run one of the following commands in the project root directory:
-```shell
-# Generate compile_commands.json while compiling
-scons compiledb=yes
+Doing this exactly is probably blocked on [this Godot PR](https://github.com/godotengine/godot/pull/116424).
 
-# Generate compile_commands.json without compiling
-scons compiledb=yes compile_commands.json
-```
+### Tracking Accuracy
 
-## Usage - Actions
+The overlay will jitter around as you move your head more than the 'real' scene,
+depending on your GPU/CPU load. This is because overlay applications do not get
+the same timing and pose path as the main scene application, which normally
+relies on compositor-driven frame pacing and pose prediction through
+WaitGetPoses().
 
-This repository comes with continuous integration (CI) through a GitHub action that tests building the GDExtension.
-It triggers automatically for each pushed change. You can find and edit it in [builds.yml](.github/workflows/ci.yml).
+I don't think there's a good way to compensate for this, but if you know of one, please open an issue or PR.
 
-There is also a workflow ([make_build.yml](.github/workflows/make_build.yml)) that builds the GDExtension for all supported platforms that you can use to create releases.
-You can trigger this workflow manually from the `Actions` tab on GitHub.
-After it is complete, you can find the file `godot-cpp-template.zip` in the `Artifacts` section of the workflow run.
+## Wow I want to make an overlay but I don't like godot, what do
+
+Lucky for you I also have a very minimal demo of projection overlays in
+
+https://github.com/hiinaspace/openvr-overlay-bunny
+
+It's python/OpenGL and fairly well documented; you can probably figure out how to do the same in another engine.

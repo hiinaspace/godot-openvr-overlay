@@ -3,12 +3,15 @@
 [ext_resource type="Script" uid="uid://bbekocwcea242" path="res://demo.gd" id="1_demo"]
 [ext_resource type="Script" uid="uid://e5cyeauglyei" path="res://controller_debug.gd" id="2_ctrldbg"]
 [ext_resource type="Texture2D" uid="uid://dbx66sovxd1" path="res://icon.svg" id="3_0bhed"]
+[ext_resource type="Script" uid="uid://cb1tiok5fhorq" path="res://spawn_thing.gd" id="4_c6xj6"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_m0rpm"]
 albedo_texture = ExtResource("3_0bhed")
 
 [sub_resource type="BoxMesh" id="BoxMesh_1"]
 material = SubResource("StandardMaterial3D_m0rpm")
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_c6xj6"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_5hfv0"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -30,6 +33,8 @@ height = 0.08
 radius = 0.04
 height = 0.08
 
+[sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_c6xj6"]
+
 [node name="Demo" type="Node3D" unique_id=1113424459]
 script = ExtResource("1_demo")
 
@@ -38,6 +43,11 @@ script = ExtResource("1_demo")
 [node name="Box" type="MeshInstance3D" parent="OpenVROverlay" unique_id=1701338152]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -3)
 mesh = SubResource("BoxMesh_1")
+
+[node name="AnimatableBody3D" type="AnimatableBody3D" parent="OpenVROverlay/Box" unique_id=605514486]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="OpenVROverlay/Box/AnimatableBody3D" unique_id=1232311176]
+shape = SubResource("BoxShape3D_c6xj6")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="OpenVROverlay" unique_id=1298751066]
 environment = SubResource("Environment_m0rpm")
@@ -77,3 +87,11 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.120000005, -0.1)
 pixel_size = 0.0005
 text = "right controller"
 font_size = 24
+
+[node name="SpawnThing" type="Node3D" parent="OpenVROverlay/OpenVROverlayOrigin3D/RightController" unique_id=1993389405]
+script = ExtResource("4_c6xj6")
+
+[node name="Floor" type="StaticBody3D" parent="OpenVROverlay" unique_id=224948723]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="OpenVROverlay/Floor" unique_id=286759038]
+shape = SubResource("WorldBoundaryShape3D_c6xj6")

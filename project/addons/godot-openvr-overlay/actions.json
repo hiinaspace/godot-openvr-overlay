@@ -1,11 +1,17 @@
 {
   "default_bindings": [
     {
+      "controller_type": "index_controller",
+      "binding_url": "bindings_index_controller.json"
+    },
+    {
       "controller_type": "knuckles",
       "binding_url": "bindings_knuckles.json"
     }
   ],
   "actions": [
+    { "name": "/actions/main/in/aim",                   "type": "pose",    "requirement": "mandatory" },
+    { "name": "/actions/main/in/grip",                  "type": "pose",    "requirement": "mandatory" },
     { "name": "/actions/main/in/left_trigger",          "type": "vector1" },
     { "name": "/actions/main/in/right_trigger",         "type": "vector1" },
     { "name": "/actions/main/in/left_grip",             "type": "vector1" },
@@ -27,7 +33,8 @@
     { "name": "/actions/main/in/left_trackpad_click",   "type": "boolean" },
     { "name": "/actions/main/in/right_trackpad_click",  "type": "boolean" },
     { "name": "/actions/main/in/left_system",           "type": "boolean" },
-    { "name": "/actions/main/in/right_system",          "type": "boolean" }
+    { "name": "/actions/main/in/right_system",          "type": "boolean" },
+    { "name": "/actions/main/out/haptic",               "type": "vibration", "requirement": "suggested" }
   ],
   "action_sets": [
     { "name": "/actions/main", "usage": "leftright" }
@@ -36,6 +43,8 @@
     {
       "language_tag": "en_US",
       "/actions/main":                         "Main",
+      "/actions/main/in/aim":                  "Aim Pose",
+      "/actions/main/in/grip":                 "Grip Pose",
       "/actions/main/in/left_trigger":         "Left Trigger (analog)",
       "/actions/main/in/right_trigger":        "Right Trigger (analog)",
       "/actions/main/in/left_grip":            "Left Grip (analog)",
@@ -57,7 +66,8 @@
       "/actions/main/in/left_trackpad_click":  "Left Trackpad Click",
       "/actions/main/in/right_trackpad_click": "Right Trackpad Click",
       "/actions/main/in/left_system":          "Left System Button",
-      "/actions/main/in/right_system":         "Right System Button"
+      "/actions/main/in/right_system":         "Right System Button",
+      "/actions/main/out/haptic":              "Haptic Feedback"
     }
   ]
 }

@@ -1,8 +1,8 @@
 {
   "json_id": "input_binding",
-  "controller_type": "knuckles",
-  "name": "Godot OpenVR Overlay Knuckles",
-  "description": "Default bindings for Godot OpenVR Overlay",
+  "controller_type": "index_controller",
+  "name": "Godot OpenVR Overlay Index Controller",
+  "description": "Default bindings for Godot OpenVR Overlay on Valve Index controllers",
   "bindings": {
     "/actions/main": {
       "haptics": [

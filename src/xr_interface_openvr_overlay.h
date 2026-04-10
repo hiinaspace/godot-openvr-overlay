@@ -21,6 +21,7 @@ public:
     bool       _is_initialized() const override;
     bool       _initialize() override;
     void       _uninitialize() override;
+    TrackingStatus _get_tracking_status() const override;
     Vector2    _get_render_target_size() override;
     uint32_t   _get_view_count() override;
     Transform3D _get_camera_transform() override;
@@ -29,6 +30,7 @@ public:
     void _process() override;
     void _post_draw_viewport(const RID &p_render_target, const Rect2 &p_screen_rect) override;
     void _end_frame() override;
+    void _trigger_haptic_pulse(const String &action_name, const StringName &tracker_name, double frequency, double amplitude, double duration_sec, double delay_sec) override;
 
     // --- Exported properties ---
     void     set_overlay_alpha(float p_alpha);
@@ -76,6 +78,8 @@ private:
     vr::VRActionSetHandle_t m_action_set = vr::k_ulInvalidActionSetHandle;
 
     struct HandHandles {
+        vr::VRActionHandle_t aim              = vr::k_ulInvalidActionHandle;
+        vr::VRActionHandle_t grip_pose        = vr::k_ulInvalidActionHandle;
         vr::VRActionHandle_t trigger          = vr::k_ulInvalidActionHandle;
         vr::VRActionHandle_t grip             = vr::k_ulInvalidActionHandle;
         vr::VRActionHandle_t thumbstick       = vr::k_ulInvalidActionHandle;
@@ -90,6 +94,9 @@ private:
     };
     HandHandles m_left_handles;
     HandHandles m_right_handles;
+    vr::VRInputValueHandle_t m_left_source = vr::k_ulInvalidInputValueHandle;
+    vr::VRInputValueHandle_t m_right_source = vr::k_ulInvalidInputValueHandle;
+    vr::VRActionHandle_t m_haptic_action = vr::k_ulInvalidActionHandle;
 
     // --- Properties ---
     float  m_overlay_alpha = 1.0f;
@@ -102,10 +109,13 @@ private:
     void _shutdown_trackers();
     void _ensure_action_handles();
     void _update_tracker_pose(Ref<XRControllerTracker> &tracker,
+                               const HandHandles &handles,
+                               vr::VRInputValueHandle_t source_handle,
                                vr::ETrackedControllerRole role,
                                const vr::TrackedDevicePose_t *poses);
     void _update_tracker_inputs(Ref<XRControllerTracker> &tracker,
-                                 const HandHandles &handles);
+                                 const HandHandles &handles,
+                                 vr::VRInputValueHandle_t source_handle);
     void _ensure_right_blit_texture(RenderingDevice *rd, uint32_t vk_format);
     void _free_blit_textures(RenderingDevice *rd);
     // Submit the original 2-layer array texture (always uses layer 0 — left eye only).

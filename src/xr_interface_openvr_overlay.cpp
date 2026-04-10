@@ -165,7 +165,17 @@ void XRInterfaceOpenVROverlay::_uninitialize() {
     m_has_pose = false;
     m_texture_rid = RID();
     m_handles_ready = false;
+    m_action_set = vr::k_ulInvalidActionSetHandle;
+    m_left_source = vr::k_ulInvalidInputValueHandle;
+    m_right_source = vr::k_ulInvalidInputValueHandle;
+    m_haptic_action = vr::k_ulInvalidActionHandle;
+    m_left_handles = HandHandles{};
+    m_right_handles = HandHandles{};
     UtilityFunctions::print("OpenVR Overlay: shutdown");
+}
+
+XRInterface::TrackingStatus XRInterfaceOpenVROverlay::_get_tracking_status() const {
+    return m_has_pose ? XRInterface::XR_NORMAL_TRACKING : XRInterface::XR_EXCESSIVE_MOTION;
 }
 
 Vector2 XRInterfaceOpenVROverlay::_get_render_target_size() {
@@ -253,8 +263,8 @@ void XRInterfaceOpenVROverlay::_process() {
     }
 
     // Update controller trackers
-    _update_tracker_pose(m_left_tracker,  vr::TrackedControllerRole_LeftHand,  poses);
-    _update_tracker_pose(m_right_tracker, vr::TrackedControllerRole_RightHand, poses);
+    _update_tracker_pose(m_left_tracker,  m_left_handles,  m_left_source,  vr::TrackedControllerRole_LeftHand,  poses);
+    _update_tracker_pose(m_right_tracker, m_right_handles, m_right_source, vr::TrackedControllerRole_RightHand, poses);
 
     // Update action inputs
     _ensure_action_handles();
@@ -263,8 +273,8 @@ void XRInterfaceOpenVROverlay::_process() {
         active.ulActionSet = m_action_set;
         vr::VRInput()->UpdateActionState(&active, sizeof(active), 1);
 
-        _update_tracker_inputs(m_left_tracker,  m_left_handles);
-        _update_tracker_inputs(m_right_tracker, m_right_handles);
+        _update_tracker_inputs(m_left_tracker,  m_left_handles,  m_left_source);
+        _update_tracker_inputs(m_right_tracker, m_right_handles, m_right_source);
     }
 }
 
@@ -334,12 +344,14 @@ void XRInterfaceOpenVROverlay::_init_trackers() {
     m_left_tracker.instantiate();
     m_left_tracker->set_tracker_name("left_hand");
     m_left_tracker->set_tracker_desc("Left Hand");
+    m_left_tracker->set_tracker_type(XRServer::TRACKER_CONTROLLER);
     m_left_tracker->set_tracker_hand(XRPositionalTracker::TRACKER_HAND_LEFT);
     xr->add_tracker(m_left_tracker);
 
     m_right_tracker.instantiate();
     m_right_tracker->set_tracker_name("right_hand");
     m_right_tracker->set_tracker_desc("Right Hand");
+    m_right_tracker->set_tracker_type(XRServer::TRACKER_CONTROLLER);
     m_right_tracker->set_tracker_hand(XRPositionalTracker::TRACKER_HAND_RIGHT);
     xr->add_tracker(m_right_tracker);
 }
@@ -363,6 +375,12 @@ void XRInterfaceOpenVROverlay::_ensure_action_handles() {
     auto get = [](const char *path, vr::VRActionHandle_t &h) {
         vr::VRInput()->GetActionHandle(path, &h);
     };
+    vr::VRInput()->GetInputSourceHandle("/user/hand/left", &m_left_source);
+    vr::VRInput()->GetInputSourceHandle("/user/hand/right", &m_right_source);
+    get("/actions/main/out/haptic",               m_haptic_action);
+
+    get("/actions/main/in/aim",                   m_left_handles.aim);
+    get("/actions/main/in/grip",                  m_left_handles.grip_pose);
     get("/actions/main/in/left_trigger",          m_left_handles.trigger);
     get("/actions/main/in/left_grip",             m_left_handles.grip);
     get("/actions/main/in/left_thumbstick",       m_left_handles.thumbstick);
@@ -375,6 +393,8 @@ void XRInterfaceOpenVROverlay::_ensure_action_handles() {
     get("/actions/main/in/left_trackpad_click",   m_left_handles.trackpad_click);
     get("/actions/main/in/left_system",           m_left_handles.system);
 
+    get("/actions/main/in/aim",                    m_right_handles.aim);
+    get("/actions/main/in/grip",                   m_right_handles.grip_pose);
     get("/actions/main/in/right_trigger",          m_right_handles.trigger);
     get("/actions/main/in/right_grip",             m_right_handles.grip);
     get("/actions/main/in/right_thumbstick",       m_right_handles.thumbstick);
@@ -387,24 +407,77 @@ void XRInterfaceOpenVROverlay::_ensure_action_handles() {
     get("/actions/main/in/right_trackpad_click",   m_right_handles.trackpad_click);
     get("/actions/main/in/right_system",           m_right_handles.system);
 
-    m_handles_ready = (m_action_set != vr::k_ulInvalidActionSetHandle);
+    m_handles_ready =
+        (m_action_set != vr::k_ulInvalidActionSetHandle) &&
+        (m_left_source != vr::k_ulInvalidInputValueHandle) &&
+        (m_right_source != vr::k_ulInvalidInputValueHandle);
+}
+
+void XRInterfaceOpenVROverlay::_trigger_haptic_pulse(
+        const String &action_name,
+        const StringName &tracker_name,
+        double frequency,
+        double amplitude,
+        double duration_sec,
+        double delay_sec) {
+    if (!m_initialized || !vr::VRInput())
+        return;
+
+    _ensure_action_handles();
+
+    vr::VRActionHandle_t action = m_haptic_action;
+    if (action == vr::k_ulInvalidActionHandle) {
+        String resolved_action = action_name;
+        if (resolved_action == "haptic")
+            resolved_action = "/actions/main/out/haptic";
+        vr::VRInput()->GetActionHandle(resolved_action.utf8().get_data(), &action);
+    }
+    if (action == vr::k_ulInvalidActionHandle)
+        return;
+
+    vr::VRInputValueHandle_t source = vr::k_ulInvalidInputValueHandle;
+    if (tracker_name == StringName("left_hand")) {
+        source = m_left_source;
+    } else if (tracker_name == StringName("right_hand")) {
+        source = m_right_source;
+    }
+
+    vr::EVRInputError err = vr::VRInput()->TriggerHapticVibrationAction(
+        action,
+        (float)delay_sec,
+        (float)duration_sec,
+        (float)frequency,
+        (float)amplitude,
+        source);
+    if (err != vr::VRInputError_None) {
+        UtilityFunctions::push_warning(String("OpenVR Overlay: TriggerHapticVibrationAction failed (") +
+            String::num_int64(err) + ")");
+    }
 }
 
 void XRInterfaceOpenVROverlay::_update_tracker_pose(
         Ref<XRControllerTracker> &tracker,
+        const HandHandles &handles,
+        vr::VRInputValueHandle_t source_handle,
         vr::ETrackedControllerRole role,
         const vr::TrackedDevicePose_t *poses) {
     if (!tracker.is_valid()) return;
 
+    auto invalidate_all_poses = [&tracker]() {
+        tracker->invalidate_pose("default");
+        tracker->invalidate_pose("aim");
+        tracker->invalidate_pose("grip");
+    };
+
     vr::TrackedDeviceIndex_t idx = vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(role);
     if (idx == vr::k_unTrackedDeviceIndexInvalid || idx >= vr::k_unMaxTrackedDeviceCount) {
-        tracker->invalidate_pose("default");
+        invalidate_all_poses();
         return;
     }
 
     const vr::TrackedDevicePose_t &p = poses[idx];
     if (!p.bPoseIsValid) {
-        tracker->invalidate_pose("default");
+        invalidate_all_poses();
         return;
     }
 
@@ -423,40 +496,92 @@ void XRInterfaceOpenVROverlay::_update_tracker_pose(
             : XRPose::XR_TRACKING_CONFIDENCE_LOW;
 
     tracker->set_pose("default", t, lin_vel, ang_vel, conf);
+
+    auto update_action_pose = [&](const char *name, vr::VRActionHandle_t handle) {
+        if (!m_handles_ready || handle == vr::k_ulInvalidActionHandle || source_handle == vr::k_ulInvalidInputValueHandle) {
+            tracker->invalidate_pose(name);
+            return;
+        }
+
+        vr::InputPoseActionData_t data{};
+        vr::EVRInputError err = vr::VRInput()->GetPoseActionDataForNextFrame(
+            handle,
+            vr::TrackingUniverseStanding,
+            &data,
+            sizeof(data),
+            source_handle);
+        if (err != vr::VRInputError_None || !data.bActive || !data.pose.bPoseIsValid) {
+            tracker->invalidate_pose(name);
+            return;
+        }
+
+        Transform3D pose_t = ovr_math::to_godot(data.pose.mDeviceToAbsoluteTracking);
+        pose_t.origin *= (float)ws;
+
+        Vector3 pose_lin_vel(data.pose.vVelocity.v[0], data.pose.vVelocity.v[1], data.pose.vVelocity.v[2]);
+        Vector3 pose_ang_vel(data.pose.vAngularVelocity.v[0], data.pose.vAngularVelocity.v[1], data.pose.vAngularVelocity.v[2]);
+
+        XRPose::TrackingConfidence pose_conf =
+            (data.pose.eTrackingResult == vr::TrackingResult_Running_OK)
+                ? XRPose::XR_TRACKING_CONFIDENCE_HIGH
+                : XRPose::XR_TRACKING_CONFIDENCE_LOW;
+
+        tracker->set_pose(name, pose_t, pose_lin_vel, pose_ang_vel, pose_conf);
+    };
+
+    update_action_pose("aim", handles.aim);
+    update_action_pose("grip", handles.grip_pose);
 }
 
 void XRInterfaceOpenVROverlay::_update_tracker_inputs(
         Ref<XRControllerTracker> &tracker,
-        const HandHandles &handles) {
+        const HandHandles &handles,
+        vr::VRInputValueHandle_t source_handle) {
     if (!tracker.is_valid()) return;
 
-    auto f1 = [](vr::VRActionHandle_t h) -> float {
+    auto f1 = [source_handle](vr::VRActionHandle_t h) -> float {
         vr::InputAnalogActionData_t d{};
-        vr::VRInput()->GetAnalogActionData(h, &d, sizeof(d), vr::k_ulInvalidInputValueHandle);
+        vr::VRInput()->GetAnalogActionData(h, &d, sizeof(d), source_handle);
         return d.bActive ? d.x : 0.0f;
     };
-    auto f2 = [](vr::VRActionHandle_t h) -> Vector2 {
+    auto f2 = [source_handle](vr::VRActionHandle_t h) -> Vector2 {
         vr::InputAnalogActionData_t d{};
-        vr::VRInput()->GetAnalogActionData(h, &d, sizeof(d), vr::k_ulInvalidInputValueHandle);
+        vr::VRInput()->GetAnalogActionData(h, &d, sizeof(d), source_handle);
         return d.bActive ? Vector2(d.x, d.y) : Vector2();
     };
-    auto fb = [](vr::VRActionHandle_t h) -> bool {
+    auto fb = [source_handle](vr::VRActionHandle_t h) -> bool {
         vr::InputDigitalActionData_t d{};
-        vr::VRInput()->GetDigitalActionData(h, &d, sizeof(d), vr::k_ulInvalidInputValueHandle);
+        vr::VRInput()->GetDigitalActionData(h, &d, sizeof(d), source_handle);
         return d.bActive && d.bState;
     };
 
-    tracker->set_input("trigger",         Variant(f1(handles.trigger)));
-    tracker->set_input("grip",            Variant(f1(handles.grip)));
-    tracker->set_input("primary",         Variant(f2(handles.thumbstick)));
-    tracker->set_input("secondary",       Variant(f2(handles.trackpad)));
-    tracker->set_input("trigger_click",   Variant(fb(handles.trigger_click)));
-    tracker->set_input("grip_click",      Variant(fb(handles.grip_click)));
-    tracker->set_input("ax_button",       Variant(fb(handles.a)));
-    tracker->set_input("by_button",       Variant(fb(handles.b)));
-    tracker->set_input("primary_click",   Variant(fb(handles.thumbstick_click)));
-    tracker->set_input("secondary_click", Variant(fb(handles.trackpad_click)));
-    tracker->set_input("menu_button",     Variant(fb(handles.system)));
+    const float trigger_value = f1(handles.trigger);
+    const float grip_value = f1(handles.grip);
+    const Vector2 primary_value = f2(handles.thumbstick);
+    const Vector2 secondary_value = f2(handles.trackpad);
+    const bool trigger_click = fb(handles.trigger_click);
+    const bool grip_click = fb(handles.grip_click);
+    const bool ax_button = fb(handles.a);
+    const bool by_button = fb(handles.b);
+    const bool primary_click = fb(handles.thumbstick_click);
+    const bool secondary_click = fb(handles.trackpad_click);
+    const bool menu_button = fb(handles.system);
+
+    tracker->set_input("trigger",         Variant(trigger_value));
+    tracker->set_input("trigger_value",   Variant(trigger_value));
+    tracker->set_input("grip",            Variant(grip_value));
+    tracker->set_input("grip_value",      Variant(grip_value));
+    tracker->set_input("primary",         Variant(primary_value));
+    tracker->set_input("secondary",       Variant(secondary_value));
+    tracker->set_input("trigger_click",   Variant(trigger_click));
+    tracker->set_input("grip_click",      Variant(grip_click));
+    tracker->set_input("ax_button",       Variant(ax_button));
+    tracker->set_input("button_ax",       Variant(ax_button));
+    tracker->set_input("by_button",       Variant(by_button));
+    tracker->set_input("button_by",       Variant(by_button));
+    tracker->set_input("primary_click",   Variant(primary_click));
+    tracker->set_input("secondary_click", Variant(secondary_click));
+    tracker->set_input("menu_button",     Variant(menu_button));
 }
 
 void XRInterfaceOpenVROverlay::_ensure_right_blit_texture(RenderingDevice *rd, uint32_t vk_format) {

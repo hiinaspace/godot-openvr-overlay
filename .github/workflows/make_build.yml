@@ -45,14 +45,14 @@ jobs:
       - name: Remove build-only outputs
         shell: pwsh
         run: |
-          Get-ChildItem project\bin\windows -Include *.exp,*.lib,*.pdb -File | Remove-Item -Force
-          Remove-Item project\bin\godot-openvr-overlay.gdextension.uid -Force -ErrorAction SilentlyContinue
+          Get-ChildItem project\addons\godot-openvr-overlay\bin\windows -Include *.exp,*.lib,*.pdb -File | Remove-Item -Force
+          Remove-Item project\addons\godot-openvr-overlay\godot-openvr-overlay.gdextension.uid -Force -ErrorAction SilentlyContinue
 
-      - name: Upload project bin
+      - name: Upload addon payload
         uses: actions/upload-artifact@v4
         with:
-          name: project-bin-windows-x86_64
-          path: project/bin/
+          name: addon-windows-x86_64
+          path: project/addons/godot-openvr-overlay/
 
   package:
     needs: build-windows
@@ -73,23 +73,23 @@ jobs:
             echo "ZIP_NAME=godot-openvr-overlay-windows-x86_64-${COMMIT_SHORT_SHA}.zip" >> $GITHUB_ENV
           fi
 
-      - name: Download built bin payload
+      - name: Download built addon payload
         uses: actions/download-artifact@v4
         with:
-          name: project-bin-windows-x86_64
-          path: artifacts/project-bin
+          name: addon-windows-x86_64
+          path: artifacts/addon
 
       - name: Package release zip
         run: |
-          mkdir -p godot-openvr-overlay/bin
-          cp -r artifacts/project-bin/* godot-openvr-overlay/bin/
-          find godot-openvr-overlay/bin -name '.gitkeep' -delete
-          find godot-openvr-overlay/bin -name '*.exp' -delete
-          find godot-openvr-overlay/bin -name '*.lib' -delete
-          find godot-openvr-overlay/bin -name '*.pdb' -delete
-          find godot-openvr-overlay/bin -name '*.uid' -delete
-          cp project/actions.json godot-openvr-overlay/
-          cp project/bindings_knuckles.json godot-openvr-overlay/
+          mkdir -p addons
+          cp -r artifacts/addon addons/godot-openvr-overlay
+          find addons/godot-openvr-overlay -name '.gitkeep' -delete
+          find addons/godot-openvr-overlay -name '*.exp' -delete
+          find addons/godot-openvr-overlay -name '*.lib' -delete
+          find addons/godot-openvr-overlay -name '*.pdb' -delete
+          find addons/godot-openvr-overlay -name '*.uid' -delete
+          mkdir -p godot-openvr-overlay
+          mv addons godot-openvr-overlay/
           cp LICENSE.md godot-openvr-overlay/
           cp README.md godot-openvr-overlay/
           zip -r "${ZIP_NAME}" godot-openvr-overlay

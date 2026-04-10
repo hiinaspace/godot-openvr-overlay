@@ -12,11 +12,22 @@ config_version=5
 
 config/name="godot-openvr-overlay"
 run/main_scene="uid://demo"
-config/features=PackedStringArray("4.6", "GL Compatibility")
+config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 config/run/main_scene="res://demo.tscn"
 
+[autoload]
+
+OpenVROverlayAutoload="*res://addons/godot-openvr-overlay/openvr_overlay_autoloader.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot-openvr-overlay/plugin.cfg")
+
 [rendering]
 
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
+renderer/rendering_method.mobile="forward_plus"
+
+[xr]
+
+shaders/enabled=true

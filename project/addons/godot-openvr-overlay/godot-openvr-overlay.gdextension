@@ -1,0 +1,11 @@
+[configuration]
+
+entry_symbol = "godot_openvr_overlay_init"
+compatibility_minimum = "4.6"
+reloadable = false
+
+[libraries]
+windows.x86_64.single.debug = "./bin/windows/godot-openvr-overlay.windows.template_debug.x86_64.dll"
+windows.x86_64.double.debug = "./bin/windows/godot-openvr-overlay.windows.template_debug.x86_64.double.dll"
+windows.x86_64.single.release = "./bin/windows/godot-openvr-overlay.windows.template_release.x86_64.dll"
+windows.x86_64.double.release = "./bin/windows/godot-openvr-overlay.windows.template_release.x86_64.double.dll"

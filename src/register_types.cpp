@@ -5,20 +5,14 @@
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
 
-#include "openvr_overlay.h"
-#include "openvr_overlay_origin_3d.h"
-#include "openvr_overlay_camera_3d.h"
-#include "openvr_overlay_controller_3d.h"
+#include "xr_interface_openvr_overlay.h"
 
 using namespace godot;
 
 void initialize_gdextension_types(ModuleInitializationLevel p_level) {
     if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE)
         return;
-    GDREGISTER_CLASS(OpenVROverlay);
-    GDREGISTER_CLASS(OpenVROverlayOrigin3D);
-    GDREGISTER_CLASS(OpenVROverlayCamera3D);
-    GDREGISTER_CLASS(OpenVROverlayController3D);
+    GDREGISTER_CLASS(XRInterfaceOpenVROverlay);
 }
 
 void uninitialize_gdextension_types(ModuleInitializationLevel p_level) {

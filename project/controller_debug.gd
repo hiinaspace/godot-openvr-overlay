@@ -1,18 +1,18 @@
-extends OpenVROverlayController3D
+extends XRController3D
 
 @onready var label: Label3D = $Label3D
 
 func _process(_delta: float) -> void:
 	# C++ _process runs automatically via _notification; just read the updated state here.
-	if not is_active:
+	if not get_is_active():
 		label.text = "(no controller)"
 		return
 
-	var trigger_val := get_trigger()
-	var stick := get_axis(0)
+	var trigger_val := get_float("trigger")
+	var stick := get_vector2("primary")
 	var grip := is_button_pressed("grip")
-	var a_btn := is_button_pressed("a")
-	var b_btn := is_button_pressed("b")
+	var a_btn := is_button_pressed("ax_button")
+	var b_btn := is_button_pressed("by_button")
 
 	label.text = (
 		"trigger: %.2f\n" % trigger_val +

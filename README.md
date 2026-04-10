@@ -13,61 +13,39 @@ The repository includes a sample project in [project](./project). The default
 scene shows a rotating cube and some debug text for each controller, plus a very
 basic physics demo if you press the right trigger.
 
-## Scene API
+## How to Use
 
-The extension currently registers these main node types:
+Download the [latest release from github](https://github.com/hiinaspace/godot-openvr-overlay/releases/latest)
+and extract the zip into your project's `addons/` directory.
 
-* `OpenVROverlay`
-* `OpenVROverlayOrigin3D`
-* `OpenVROverlayCamera3D`
-* `OpenVROverlayController3D`
+Then enable the `OpenVR Overlay` plugin in Project Settings.
 
-The OpenVROverlay node is essentially the viewport for the overlay and the other nodes act essentially the same
-as godot's [regular XR nodes](https://docs.godotengine.org/en/stable/tutorials/xr/index.html). Typical setup is:
+Then follow [Godot's XR setup guide](https://docs.godotengine.org/en/stable/tutorials/xr/setting_up_xr.html), but change the interface:
 
-* `OpenVROverlay` as the overlay root/viewport.
-  * normal scene content parented under the overlay
-  * one `OpenVROverlayOrigin3D` child to define the tracking-space origin and world scale
-    * `OpenVROverlayCamera3D` node to track the head
-    * `OpenVROverlayController3D` for each controller
+```diff
+-xr_interface = XRServer.find_interface("OpenXR")
++xr_interface = XRServer.find_interface("OpenVR Overlay")
+```
 
-You read controller inputs from the controller nodes. There is a openVR
-action map defined, but I honestly really don't understand how the binding system works;
-If you know how to do this better, open an Issue/PR.
+Then when you press play, your app will display on top of any other OpenVR
+apps running, instead of replacing them.
 
 ## Requirements
 
 * Godot `4.6+`
 * SteamVR / OpenVR runtime, not OpenXR
-  * SteamVR's OpenXR API doesn't expose a similar overlay like this unfortunately.
+  * SteamVR's OpenXR API doesn't expose a similar overlay like this
+    unfortunately (waiting warmly for `XR_EXTX_overlay`)
   * I don't think Oculus link/virtual desktop does either, so probably have to
     use steam link (I don't have a meta headset to test).
-* Compatibility renderer (`gl_compatibility`), not Mobile/Forward+
-	* I actually realize that OpenVR does support vulkan textures now, so I
-	  might add support for those renderers later.
+* Mobile or Forward+ Renderer
+  * Compatability renderer could be supported without much effort but it doesn't
+    at the moment.
 * Windows x86_64
   * SteamVR/OpenVR theoreticaly works on Linux but not for me, so I
     didn't bother testing/building.
 
-## Download / Install
-
-Prebuilt packages are attached to tagged releases:
-
-https://github.com/hiinaspace/godot-openvr-overlay/releases/latest
-
-Extract the zip into your project's `addons/` directory.
-
 ## Limitations
-
-### Projection Accuracy
-
-Godot does not expose arbitrary camera projection matrices through the stock
-GDExtension API in a way this plugin can rely on for release builds, so the eye
-camera projection currently uses `Camera3D::set_frustum()` as an approximation.
-On the the Bigscreen Beyond 2 I tested this on, it was close enough in practice,
-but still looks slightly "off".
-
-Doing this exactly is probably blocked on [this Godot PR](https://github.com/godotengine/godot/pull/116424).
 
 ### Tracking Accuracy
 
@@ -79,18 +57,19 @@ WaitGetPoses().
 
 I don't think there's a good way to compensate for this, but if you know of one, please open an issue or PR.
 
+### Right Eye Texture Blit
+
+Godot renders both eyes in a single pass to a vulkan array texture. OpenVR's
+projective overlays (apparently) don't support array textures. This extension
+works around this by submitting the array texture to the left eye overlay as is (and steamvr reads layer 0/left eye), but has to blit the right eye to
+a separate texture before submission.
+
 ## Wait how is this different than [godot_openvr](https://github.com/GodotVR/godot_openvr)?
 
-This addon only supports making overlay apps, not regular OpenVR apps aka "Scene" applications.
-It also doesn't use/subclass the real Godot XR nodes or XRServer. Having separate (but conceptually similar)
-nodes felt cleaner to me than trying to figure out where things can be exactly the same and where they
-have to awkwardly differ for an overlay app.
+This addon only supports making overlay apps, not regular OpenVR apps aka "Scene" applications. If you want to make a regular VR app in 2026, you should probably use OpenXR anyway, which is also built in to godot itself, instead of OpenVR.
 
-I'll probably revisit this decision at some point. Open an issue/contact me if
-you have ideas on how best to do this.
-
-FWIW if you are making a regular VR app in 2026, you should probably use OpenXR
-anyway, which is also built in to godot itself, instead of OpenVR.
+In theory this extension could be merged into `godot_openvr`, but it's
+kind of niche, so I haven't bothered trying. I think if you wanted to make a dual overlay/regular VR app, you may be better off still using OpenXR for the regular path and only add this extension just for the overlay mode.
 
 ## Wow I want to make an overlay but I don't like godot, what do?
 

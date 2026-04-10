@@ -54,15 +54,9 @@ target_sources(${LIBNAME}
     PRIVATE
     src/register_types.cpp
     src/register_types.h
-    src/openvr_overlay.cpp
-    src/openvr_overlay.h
     src/openvr_math.h
-    src/openvr_overlay_origin_3d.cpp
-    src/openvr_overlay_origin_3d.h
-    src/openvr_overlay_camera_3d.cpp
-    src/openvr_overlay_camera_3d.h
-    src/openvr_overlay_controller_3d.cpp
-    src/openvr_overlay_controller_3d.h
+    src/xr_interface_openvr_overlay.cpp
+    src/xr_interface_openvr_overlay.h
 )
 
 target_include_directories(${LIBNAME} PRIVATE "${OPENVR_INCLUDE}")
@@ -80,7 +74,7 @@ set_target_properties(${LIBNAME}
     OUTPUT_NAME "${LIBNAME}${GODOTCPP_SUFFIX}"
 )
 
-set(GODOT_PROJECT_BINARY_DIR "${PROJECT_SOURCE_DIR}/${GODOT_PROJECT_DIR}/bin/${GODOTCPP_PLATFORM}")
+set(GODOT_PROJECT_BINARY_DIR "${PROJECT_SOURCE_DIR}/${GODOT_PROJECT_DIR}/addons/${LIBNAME}/bin/${GODOTCPP_PLATFORM}")
 
 add_custom_command(TARGET ${LIBNAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${GODOT_PROJECT_BINARY_DIR}"

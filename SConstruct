@@ -7,6 +7,7 @@ from methods import print_error
 
 libname = "godot-openvr-overlay"
 projectdir = "project"
+addondir = os.path.join(projectdir, "addons", libname)
 
 localEnv = Environment(tools=["default"], PLATFORM="")
 
@@ -100,13 +101,13 @@ library = env.SharedLibrary(
     source=sources,
 )
 
-copy = env.Install("{}/bin/{}/".format(projectdir, env["platform"]), library)
+copy = env.Install("{}/bin/{}/".format(addondir, env["platform"]), library)
 
 default_args = [library, copy]
 
 runtime_file = platform_runtime_files.get(platform, {}).get(arch)
 if runtime_file and os.path.isfile(runtime_file):
-    runtime_copy = env.Install("{}/bin/{}/".format(projectdir, env["platform"]), runtime_file)
+    runtime_copy = env.Install("{}/bin/{}/".format(addondir, env["platform"]), runtime_file)
     default_args.append(runtime_copy)
 
 Default(*default_args)
